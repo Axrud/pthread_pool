@@ -45,12 +45,22 @@ static void task_increment_int_3(void *parg)
     struct pthread_pool *pthreadpool;
     size_t *p;
     int iballoc;
+    uint8_t add1;
+    uint16_t add2;
+    uint32_t add3;
+
     ptp_task_pull_arg(&pthreadpool, sizeof(pthreadpool), &parg);
     ptp_task_pull_arg(&p, sizeof(p), &parg);
     ptp_task_pull_arg(&iballoc, sizeof(iballoc), &parg);
 
+    ptp_task_pull_arg(&add1, sizeof(add1), &parg);
+    ptp_task_pull_arg(&add2, sizeof(add2), &parg);
+    ptp_task_pull_arg(&add3, sizeof(add3), &parg);
+
     /*++*p; */
-    __atomic_add_fetch(p, 1, __ATOMIC_RELAXED);
+    __atomic_add_fetch(p, add1, __ATOMIC_RELAXED);
+    __atomic_add_fetch(p, add2, __ATOMIC_RELAXED);
+    __atomic_add_fetch(p, add3, __ATOMIC_RELAXED);
 }
 
 static void task_increment_int_2(void *parg)
@@ -60,9 +70,17 @@ static void task_increment_int_2(void *parg)
     struct ptp_task *ptp_task;
     size_t *p;
     int iret, iballoc;
+    uint8_t add1;
+    uint16_t add2;
+    uint32_t add3;
+
     ptp_task_pull_arg(&pthreadpool, sizeof(pthreadpool), &parg);
     ptp_task_pull_arg(&p, sizeof(p), &parg);
     ptp_task_pull_arg(&iballoc, sizeof(iballoc), &parg);
+
+    ptp_task_pull_arg(&add1, sizeof(add1), &parg);
+    ptp_task_pull_arg(&add2, sizeof(add2), &parg);
+    ptp_task_pull_arg(&add3, sizeof(add3), &parg);
 
     ptp_task = iballoc ? pthread_pool_balloc_task(pthreadpool) : ptp_nballoc_task(pthreadpool);
     if (NULL != ptp_task) {
@@ -71,6 +89,10 @@ static void task_increment_int_2(void *parg)
         ptp_task_push_arg(ptp_task, &pthreadpool, sizeof(pthreadpool));
         ptp_task_push_arg(ptp_task, &p, sizeof(p));
         ptp_task_push_arg(ptp_task, &(iballoc), sizeof(iballoc));
+
+        ptp_task_push_arg(ptp_task, &add1, sizeof(add1));
+        ptp_task_push_arg(ptp_task, &add2, sizeof(add2));
+        ptp_task_push_arg(ptp_task, &add3, sizeof(add3));
         iret = pthread_pool_add_task(pthreadpool, ptp_task);
         if (-1 == iret)
             printf("add_task failed\n");
@@ -85,9 +107,17 @@ static void task_increment_int_1(void *parg)
     struct ptp_task *ptp_task;
     size_t *p;
     int iret, iballoc;
+    uint8_t add1;
+    uint16_t add2;
+    uint32_t add3;
+
     ptp_task_pull_arg(&pthreadpool, sizeof(pthreadpool), &parg);
     ptp_task_pull_arg(&p, sizeof(p), &parg);
     ptp_task_pull_arg(&iballoc, sizeof(iballoc), &parg);
+
+    ptp_task_pull_arg(&add1, sizeof(add1), &parg);
+    ptp_task_pull_arg(&add2, sizeof(add2), &parg);
+    ptp_task_pull_arg(&add3, sizeof(add3), &parg);
 
     ptp_task = iballoc ? pthread_pool_balloc_task(pthreadpool) : ptp_nballoc_task(pthreadpool);
     if (NULL != ptp_task) {
@@ -96,6 +126,10 @@ static void task_increment_int_1(void *parg)
         ptp_task_push_arg(ptp_task, &pthreadpool, sizeof(pthreadpool));
         ptp_task_push_arg(ptp_task, &p, sizeof(p));
         ptp_task_push_arg(ptp_task, &(iballoc), sizeof(iballoc));
+
+        ptp_task_push_arg(ptp_task, &add1, sizeof(add1));
+        ptp_task_push_arg(ptp_task, &add2, sizeof(add2));
+        ptp_task_push_arg(ptp_task, &add3, sizeof(add3));
         iret = pthread_pool_add_task(pthreadpool, ptp_task);
         if (-1 == iret)
             printf("add_task failed\n");
@@ -107,6 +141,9 @@ struct pthread_pool_subtest_struct {
     size_t sz_value, sz_limit;
     struct pthread_pool threadpool;
     int irecursive, iballoc;
+    uint8_t add1;
+    uint16_t add2;
+    uint32_t add3;
 };
 
 static void pthread_pool_subtest_route(void *parg)
@@ -129,6 +166,10 @@ static void pthread_pool_subtest_route(void *parg)
             pstrarg = (const char *)&(pargs->sz_value);
             ptp_task_push_arg(ptp_task, &pstrarg, sizeof(pstrarg));
             ptp_task_push_arg(ptp_task, &(pargs->iballoc), sizeof(pargs->iballoc));
+
+            ptp_task_push_arg(ptp_task, &(pargs->add1), sizeof(pargs->add1));
+            ptp_task_push_arg(ptp_task, &(pargs->add2), sizeof(pargs->add2));
+            ptp_task_push_arg(ptp_task, &(pargs->add3), sizeof(pargs->add3));
             iret = pthread_pool_add_task(ptp, ptp_task);
             if (-1 == iret)
                 printf("add_task failed\n");
@@ -149,6 +190,10 @@ static void pthread_pool_subtest_route(void *parg)
             pstrarg = (const char *)&(pargs->sz_value);
             ptp_task_push_arg(ptp_task, &pstrarg, sizeof(pstrarg));
             ptp_task_push_arg(ptp_task, &(pargs->iballoc), sizeof(pargs->iballoc));
+
+            ptp_task_push_arg(ptp_task, &(pargs->add1), sizeof(pargs->add1));
+            ptp_task_push_arg(ptp_task, &(pargs->add2), sizeof(pargs->add2));
+            ptp_task_push_arg(ptp_task, &(pargs->add3), sizeof(pargs->add3));
             iret = pthread_pool_add_task(ptp, ptp_task);
             if (-1 == iret)
                 printf("add_task failed\n");
@@ -172,6 +217,9 @@ static int pthread_pool_subtest(int recursive, int balloc)
     test_args.sz_limit = 15000;
     test_args.irecursive = recursive;
     test_args.iballoc = balloc;
+    test_args.add1 = 1;
+    test_args.add2 = 1;
+    test_args.add3 = 1;
 
     iret = pthread_pool_alloc(&(test_args.threadpool), 1000);
     if (0 == iret) {
@@ -187,7 +235,9 @@ static int pthread_pool_subtest(int recursive, int balloc)
 
         /*printf("end of thread_pool_test with join %lu\n", test_args.sz_value); */
 
-        if (test_args.sz_value == num_of_threads * 2 * test_args.sz_limit)
+        if (test_args.sz_value ==
+            num_of_threads * 2 * test_args.sz_limit * (test_args.add1 + test_args.add2 +
+                                                       test_args.add3))
             iret = 0;
         else
             iret = -1;

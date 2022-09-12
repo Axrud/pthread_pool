@@ -5,6 +5,9 @@
 #include <sys/sysinfo.h>
 #include <search.h>
 
+#define SIZEOFMW (sizeof(const size_t))
+#define AND_MASK (SIZEOFMW - 1)
+#define ARGSIZE_ADD(argsize) (SIZEOFMW - arg_size & AND_MASK)
 int ptp_task_push_arg(struct ptp_task *ptask, const void *parg, size_t arg_size)
 {
     int iret;
@@ -21,7 +24,7 @@ int ptp_task_push_arg(struct ptp_task *ptask, const void *parg, size_t arg_size)
             *(uint8_t *) pargs = *(const uint8_t *)parg;
         else
             memcpy(pargs, parg, arg_size);
-        ptask->args_size += arg_size;
+        ptask->args_size += arg_size + ARGSIZE_ADD(arg_size);
         iret = 0;
     } else
         iret = -1;
@@ -31,7 +34,7 @@ int ptp_task_push_arg(struct ptp_task *ptask, const void *parg, size_t arg_size)
 void ptp_task_pull_arg(void *parg, size_t arg_size, void **pargs)
 {
     const void *const p = *pargs;
-    *(const unsigned char **)pargs += arg_size;
+    *(const unsigned char **)pargs += arg_size + ARGSIZE_ADD(arg_size);
     if (sizeof(uint64_t) == arg_size)
         *(uint64_t *) parg = *(const uint64_t *)p;
     else if (sizeof(uint32_t) == arg_size)
@@ -50,7 +53,6 @@ void ptp_task_clear(struct ptp_task *ptask)
     ptask->task_fun_ptr = NULL;
     ptask->pnext = NULL;
     ptask->args_size = 0;
-    /*ptask->task_pool_recursive_idx = -1; */
 }
 
 static void ptp_task_copy(struct ptp_task *pto, const struct ptp_task *pfrom)
@@ -79,6 +81,13 @@ static void zeroed_common_queue(struct common_queue *pqueue)
     pqueue->size = 0;
 }
 
+static size_t common_queue_reduce_req(size_t req)
+{
+    if (0x4000 < req)
+        req = 0x4000;
+    return req;
+}
+
 void common_queue_pushback(struct common_queue *pqueue, struct common_queue_node_header *pnode)
 {
     pnode->pnext = NULL;
@@ -93,13 +102,12 @@ void common_queue_pushback(struct common_queue *pqueue, struct common_queue_node
 struct common_queue_node_header *common_queue_popfront(struct common_queue *pqueue)
 {
     struct common_queue_node_header *const pret = pqueue->phead;
-    if (pqueue->size > 1) {
+    if (!common_queue_empty(pqueue)) {
         pqueue->phead = pqueue->phead->pnext;
         pret->pnext = NULL;
         pqueue->size--;
-    } else {
-        if (!common_queue_empty(pqueue))        /*size == 1 */
-            zeroed_common_queue(pqueue);
+        if (common_queue_empty(pqueue))
+            pqueue->ptail = NULL;
     }
     return pret;
 }
@@ -156,8 +164,7 @@ int common_queue_realloc(struct common_queue *pqueue, size_t req, size_t size)
 
 int common_queue_alloc(struct common_queue *pqueue, size_t req, size_t size)
 {
-    if (16384 < req)
-        req = 16384;
+    req = common_queue_reduce_req(req);
     zeroed_common_queue(pqueue);
     return common_queue_realloc(pqueue, req, size);
 }
@@ -168,8 +175,7 @@ int common_queue_aralloc(struct common_queue *pqueue, size_t req, size_t size)
     int iret = 0;
     unsigned char *ppt;
     struct common_queue_node_header *ptail;
-    if (16384 < req)
-        req = 16384;
+    req = common_queue_reduce_req(req);
     if (req > 0) {
         pqueue->phead = ptail = ppt = malloc(req * size);
         if (NULL != ppt) {
@@ -886,6 +892,36 @@ int pthread_pool_joinall_tasks(struct pthread_pool *ptp)
 
         __atomic_store(&(ptp->state), &state_working, __ATOMIC_RELEASE);
         iret = 0;
+    } else
+        iret = -1;
+    return iret;
+}
+
+size_t pthread_pool_task_pool_size(struct pthread_pool *ptp)
+{
+    size_t task_pool_size;
+    __atomic_load(&(ptp->task_pool_size), &task_pool_size, __ATOMIC_ACQUIRE);
+    return task_pool_size;
+}
+
+int pthread_pool_reduce_task_pool(struct pthread_pool *ptp, size_t req)
+{
+    int iret = 0;
+    struct ptp_task *ptask;
+    if (req < ptp->num_of_threads)
+        req = ptp->num_of_threads;
+    if (0 == pthread_mutex_lock_with_err(ptp, &(ptp->mtx_pool))) {
+        while (req < ptp->task_pool.size) {
+            ptask = ptp_task_queue_popfront(&(ptp->task_pool));
+            if (NULL != ptask)
+                free(ptask);
+            else {
+                iret = -1;
+                break;
+            }
+        }
+        __atomic_store(&(ptp->task_pool_size), &req, __ATOMIC_RELEASE);
+        pthread_mutex_unlock(&(ptp->mtx_pool));
     } else
         iret = -1;
     return iret;

@@ -11,8 +11,7 @@
 struct ptp_task {
     struct ptp_task *pnext;
     void (*task_fun_ptr)(void *);
-    size_t args_size;
-    uint8_t args[256 - sizeof(void (*)(void *)) - sizeof(struct ptp_task *) - sizeof(size_t)];
+    size_t args[32], args_size;
     size_t task_pool_recursive_idx;
 };
 struct ptp_task_queue {
@@ -65,6 +64,8 @@ struct ptp_task *pthread_pool_nballoc_task(struct pthread_pool *, int);
 int pthread_pool_add_task(struct pthread_pool *, struct ptp_task *);
 int pthread_pool_removeall_tasks(struct pthread_pool *);
 int pthread_pool_joinall_tasks(struct pthread_pool *);
+size_t pthread_pool_task_pool_size(struct pthread_pool *);
+int pthread_pool_reduce_task_pool(struct pthread_pool *, size_t);
 int pthread_pool_qerror_empty(struct pthread_pool *);
 int pthread_pool_qerror_pool(struct ptp_error *, struct pthread_pool *);
 
