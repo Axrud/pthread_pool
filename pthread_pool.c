@@ -5,15 +5,21 @@
 #include <sys/sysinfo.h>
 #include <search.h>
 
-#define SIZEOFMW (sizeof(const size_t))
-#define AND_MASK (SIZEOFMW - 1)
-#define ARGSIZE_ADD(argsize) (SIZEOFMW - arg_size & AND_MASK)
+#define IS_POWER_OF_2(N) (0 == ((N) & ((N)-1)))
+#define AND_MASK_VAR(argsize) ((argsize) - 1)
+#define PTRARGS_ADD_VAR(pargs, argsize) \
+    ((IS_POWER_OF_2(argsize) && (argsize) <= 16) ? \
+            ((argsize) - (const size_t)(pargs) & AND_MASK_VAR(argsize)) : 0)
+
 int ptp_task_push_arg(struct ptp_task *ptask, const void *parg, size_t arg_size)
 {
     int iret;
+    size_t align_add;
     unsigned char *pargs;
     if (sizeof(ptask->args) - ptask->args_size >= arg_size) {
         pargs = (unsigned char *)(ptask->args) + ptask->args_size;
+        align_add = PTRARGS_ADD_VAR(pargs, arg_size);
+        pargs += align_add;
         if (sizeof(uint64_t) == arg_size)
             *(uint64_t *) pargs = *(const uint64_t *)parg;
         else if (sizeof(uint32_t) == arg_size)
@@ -24,7 +30,7 @@ int ptp_task_push_arg(struct ptp_task *ptask, const void *parg, size_t arg_size)
             *(uint8_t *) pargs = *(const uint8_t *)parg;
         else
             memcpy(pargs, parg, arg_size);
-        ptask->args_size += arg_size + ARGSIZE_ADD(arg_size);
+        ptask->args_size += arg_size + align_add;
         iret = 0;
     } else
         iret = -1;
@@ -33,8 +39,9 @@ int ptp_task_push_arg(struct ptp_task *ptask, const void *parg, size_t arg_size)
 
 void ptp_task_pull_arg(void *parg, size_t arg_size, void **pargs)
 {
-    const void *const p = *pargs;
-    *(const unsigned char **)pargs += arg_size + ARGSIZE_ADD(arg_size);
+    const size_t align_add = PTRARGS_ADD_VAR(*pargs, arg_size);
+    const unsigned char *const p = (const unsigned char *)*pargs + align_add;
+    *pargs = p + arg_size;
     if (sizeof(uint64_t) == arg_size)
         *(uint64_t *) parg = *(const uint64_t *)p;
     else if (sizeof(uint32_t) == arg_size)
