@@ -87,7 +87,6 @@ static void zeroed_common_queue(struct common_queue *pqueue)
     pqueue->ptail = NULL;
     pqueue->size = 0;
 }
-
 static size_t common_queue_reduce_req(size_t req)
 {
     if (0x4000 < req)
@@ -421,7 +420,7 @@ static void *ptp_thread_routine(void *arg)
             } else if (PTP_STATE_JOINING == state) {
                 pthread_cond_broadcast(&(ptp->cnd_jointasks_occurred));
                 pthread_barrier_wait_with_err(ptp);
-            } else {            /*TT_TP_STATE_WORKING == state */
+            } else {            /*PTP_STATE_WORKING == state */
                 if (0 == pthread_mutex_lock_with_err(ptp, pmtx_queue)) {
                     while (0 == ptp->task_queue.size) {
                         __atomic_load(&(ptp->state), &state, __ATOMIC_ACQUIRE);
