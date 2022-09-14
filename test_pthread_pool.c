@@ -43,7 +43,7 @@ static void task_increment_int_3(void *parg)
 {
     /*parg -> { pthread_pool*, size_t* } */
     struct pthread_pool *pthreadpool;
-    size_t *p;
+    size_t *p, v;
     int iballoc;
     uint8_t add1;
     uint16_t add2;
@@ -58,9 +58,8 @@ static void task_increment_int_3(void *parg)
     ptp_task_pull_arg(&add3, sizeof(add3), &parg);
 
     /*++*p; */
-    __atomic_add_fetch(p, add1, __ATOMIC_RELAXED);
-    __atomic_add_fetch(p, add2, __ATOMIC_RELAXED);
-    __atomic_add_fetch(p, add3, __ATOMIC_RELAXED);
+    v = add1 + add2 + add3;
+    __atomic_add_fetch(p, v, __ATOMIC_RELAXED);
 }
 
 static void task_increment_int_2(void *parg)

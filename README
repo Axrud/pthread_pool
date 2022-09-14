@@ -40,5 +40,9 @@ Functions pthread_pool_qerror_empty and pthread_pool_qerror_pool is for dealing
 with internal pthread_pool errors as well as errors that occurred within code
 of user task routines(if they set errno).
 
+Tasks can be assigned recursively(i.e. by other tasks in pthread_pool), but in this
+case within one task can be assigned recursively maximum of MAX_REC_CALLS tasks,
+otherwise, races may occure.
+
 
 
