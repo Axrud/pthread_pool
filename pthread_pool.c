@@ -465,6 +465,11 @@ static void *ptp_thread_routine(void *arg)
 #define SEMAPHORES_INITIATED 18
 #define MAX_INITS 19
 
+#define TEST_INIT_FLAG(flags, flag) ((flags) & (0x00000001 << (flag)))
+#define SET_INIT_FLAG(flags, flag) ((flags) |= (0x00000001 << (flag)))
+#define RESET_INIT_FLAG(flags, flag) ((flags) &= ~(0x00000001 << (flag)))
+#define TEST_ALL_FLAGS(flags) ((flags) == ((0x00000001 << MAX_INITS) - 1))
+
 int pthread_pool_alloc(struct pthread_pool *ptp, size_t num_of_threads)
 {
     size_t i;
@@ -489,52 +494,52 @@ int pthread_pool_alloc(struct pthread_pool *ptp, size_t num_of_threads)
 
         ptp->flags = 0;
         if (0 == pthread_mutex_init(&(ptp->mtx_pool), &mutexattr))
-            ptp->flags |= (0x00000001 << MTX_POOL_INITIATED);
+            SET_INIT_FLAG(ptp->flags, MTX_POOL_INITIATED);
         if (0 == pthread_mutex_init(&(ptp->mtx_queue), &mutexattr))
-            ptp->flags |= (0x00000001 << MTX_QUEUE_INITIATED);
+            SET_INIT_FLAG(ptp->flags, MTX_QUEUE_INITIATED);
         if (0 == pthread_mutex_init(&(ptp->mtx_pool_recursive), &mutexattr))
-            ptp->flags |= (0x00000001 << MTX_POOL_REC_INITIATED);
+            SET_INIT_FLAG(ptp->flags, MTX_POOL_REC_INITIATED);
         if (0 == pthread_mutex_init(&(ptp->mtx_queue_recursive), &mutexattr))
-            ptp->flags |= (0x00000001 << MTX_QUEUE_REC_INITIATED);
+            SET_INIT_FLAG(ptp->flags, MTX_QUEUE_REC_INITIATED);
         if (0 == pthread_mutex_init(&(ptp->mtx_error), &mutexattr))
-            ptp->flags |= (0x00000001 << MTX_ERROR_INITIATED);
+            SET_INIT_FLAG(ptp->flags, MTX_ERROR_INITIATED);
         if (0 == pthread_cond_init(&(ptp->cnd_hottask_occurred), &condattr))
-            ptp->flags |= (0x00000001 << CND_HOTTASK_INITIATED);
+            SET_INIT_FLAG(ptp->flags, CND_HOTTASK_INITIATED);
         if (0 == pthread_cond_init(&(ptp->cnd_freetask_occurred), &condattr))
-            ptp->flags |= (0x00000001 << CND_FREETASK_INITIATED);
+            SET_INIT_FLAG(ptp->flags, CND_FREETASK_INITIATED);
         if (0 == pthread_cond_init(&(ptp->cnd_jointasks_occurred), &condattr))
-            ptp->flags |= (0x00000001 << CND_JOINTASKS_INITIATED);
+            SET_INIT_FLAG(ptp->flags, CND_JOINTASKS_INITIATED);
         if (0 == pthread_barrier_init(&(ptp->brr_jointasks_occurred), &brrattr, num_of_threads))
-            ptp->flags |= (0x00000001 << BRR_JOINTASKS_INITIATED);
+            SET_INIT_FLAG(ptp->flags, BRR_JOINTASKS_INITIATED);
         if (0 == ptp_task_queue_alloc(&(ptp->task_pool), task_pool_size))
-            ptp->flags |= (0x00000001 << TASK_POOL_ALLOCATED);
+            SET_INIT_FLAG(ptp->flags, TASK_POOL_ALLOCATED);
         if (0 == ptp_task_queue_alloc(&(ptp->task_queue), 0))
-            ptp->flags |= (0x00000001 << TASK_QUEUE_ALLOCATED);
+            SET_INIT_FLAG(ptp->flags, TASK_QUEUE_ALLOCATED);
 
         ptp->task_pool_size = task_pool_size;
         ptp->state = PTP_STATE_WORKING;
         ptp->join_barrier = 0;
         ptp->num_of_threads = num_of_threads;
-        if (0 ==
-            ptp_task_queue_aralloc(&(ptp->task_pool_recursive), MAX_REC_CALLS * num_of_threads))
-            ptp->flags |= (0x00000001 << TASK_POOL_REC_ARALLOCATED);
+        if (0 == ptp_task_queue_aralloc(&(ptp->task_pool_recursive),
+                MAX_REC_CALLS * num_of_threads))
+            SET_INIT_FLAG(ptp->flags, TASK_POOL_REC_ARALLOCATED);
         if (0 == ptp_task_queue_aralloc(&(ptp->task_queue_recursive), 0))
-            ptp->flags |= (0x00000001 << TASK_QUEUE_REC_ARALLOCATED);
+            SET_INIT_FLAG(ptp->flags, TASK_QUEUE_REC_ARALLOCATED);
         if (0 == ptp_error_queue_aralloc(&(ptp->error_pool), MAX_ERROR_POOL))
-            ptp->flags |= (0x00000001 << ERROR_POOL_ARALLOCATED);
+            SET_INIT_FLAG(ptp->flags, ERROR_POOL_ARALLOCATED);
         if (0 == ptp_error_queue_aralloc(&(ptp->error_queue), 0))
-            ptp->flags |= (0x00000001 << ERROR_QUEUE_ARALLOCATED);
+            SET_INIT_FLAG(ptp->flags, ERROR_QUEUE_ARALLOCATED);
 
         ptp->ptr_threads = malloc(ptp->num_of_threads * sizeof(ptp->ptr_threads[0]));
         if (NULL != ptp->ptr_threads) {
             memset(ptp->ptr_threads, 0, ptp->num_of_threads * sizeof(ptp->ptr_threads[0]));
-            ptp->flags |= (0x00000001 << THREADS_ALLOCATED);
+            SET_INIT_FLAG(ptp->flags, THREADS_ALLOCATED);
         }
         ptp->ptr_sems_recursive = malloc(ptp->num_of_threads * sizeof(ptp->ptr_sems_recursive[0]));
         if (NULL != ptp->ptr_threads) {
             memset(ptp->ptr_sems_recursive, 0,
                    ptp->num_of_threads * sizeof(ptp->ptr_sems_recursive[0]));
-            ptp->flags |= (0x00000001 << SEMAPHORES_ALLOCATED);
+            SET_INIT_FLAG(ptp->flags, SEMAPHORES_ALLOCATED);
         }
 
         for (i = 0; i < ptp->num_of_threads; ++i) {
@@ -552,12 +557,12 @@ int pthread_pool_alloc(struct pthread_pool *ptp, size_t num_of_threads)
             }
         }
         if (ptp->num_of_threads == num_of_threads) {
-            ptp->flags |= (0x00000001 << THREADS_INITIATED);
-            ptp->flags |= (0x00000001 << SEMAPHORES_INITIATED);
+            SET_INIT_FLAG(ptp->flags, THREADS_INITIATED);
+            SET_INIT_FLAG(ptp->flags, SEMAPHORES_INITIATED);
         }
 
         iret = ptp_destroy_attrs(ptp, &thrdattr, &mutexattr, &condattr, &brrattr);
-        if (ptp->flags != (0x00000001 << MAX_INITS) - 1) {
+        if (!TEST_ALL_FLAGS(ptp->flags)) {
             pthread_pool_free(ptp);
             iret = -1;
         }
@@ -571,7 +576,7 @@ int pthread_pool_free(struct pthread_pool *ptp)
     int iret = 0, ii;
     const uint32_t state = PTP_STATE_TERMINATING;
 
-    if (ptp->flags == (0x00000001 << MAX_INITS) - 1) {
+    if (TEST_ALL_FLAGS(ptp->flags)) {
         iret = pthread_pool_joinall_tasks(ptp);
         __atomic_store(&(ptp->state), &state, __ATOMIC_RELEASE);
 
@@ -591,83 +596,83 @@ int pthread_pool_free(struct pthread_pool *ptp)
     }
 
     if (0 == ii) {
-        ptp->flags &= ~(0x00000001 << THREADS_INITIATED);
-        ptp->flags &= ~(0x00000001 << SEMAPHORES_INITIATED);
+        RESET_INIT_FLAG(ptp->flags, THREADS_INITIATED);
+        RESET_INIT_FLAG(ptp->flags, SEMAPHORES_INITIATED);
     } else
         iret |= ii;
 
-    if (ptp->flags & (0x00000001 << THREADS_ALLOCATED)) {
+    if (TEST_INIT_FLAG(ptp->flags, THREADS_ALLOCATED)) {
+        RESET_INIT_FLAG(ptp->flags, THREADS_ALLOCATED);
         free(ptp->ptr_threads);
-        ptp->flags &= ~(0x00000001 << THREADS_ALLOCATED);
     }
-    if (ptp->flags & (0x00000001 << SEMAPHORES_ALLOCATED)) {
+    if (TEST_INIT_FLAG(ptp->flags, SEMAPHORES_ALLOCATED)) {
+        RESET_INIT_FLAG(ptp->flags, SEMAPHORES_ALLOCATED);
         free(ptp->ptr_sems_recursive);
-        ptp->flags &= ~(0x00000001 << SEMAPHORES_ALLOCATED);
     }
 
-    if (ptp->flags & (0x00000001 << MTX_POOL_INITIATED)) {
+    if (TEST_INIT_FLAG(ptp->flags, MTX_POOL_INITIATED)) {
+        RESET_INIT_FLAG(ptp->flags, MTX_POOL_INITIATED);
         pthread_mutex_destroy(&(ptp->mtx_pool));
-        ptp->flags &= ~(0x00000001 << MTX_POOL_INITIATED);
     }
-    if (ptp->flags & (0x00000001 << MTX_QUEUE_INITIATED)) {
+    if (TEST_INIT_FLAG(ptp->flags, MTX_QUEUE_INITIATED)) {
+        RESET_INIT_FLAG(ptp->flags, MTX_QUEUE_INITIATED);
         pthread_mutex_destroy(&(ptp->mtx_queue));
-        ptp->flags &= ~(0x00000001 << MTX_QUEUE_INITIATED);
     }
-    if (ptp->flags & (0x00000001 << MTX_POOL_REC_INITIATED)) {
+    if (TEST_INIT_FLAG(ptp->flags, MTX_POOL_REC_INITIATED)) {
+        RESET_INIT_FLAG(ptp->flags, MTX_POOL_REC_INITIATED);
         pthread_mutex_destroy(&(ptp->mtx_pool_recursive));
-        ptp->flags &= ~(0x00000001 << MTX_POOL_REC_INITIATED);
     }
-    if (ptp->flags & (0x00000001 << MTX_QUEUE_REC_INITIATED)) {
+    if (TEST_INIT_FLAG(ptp->flags, MTX_QUEUE_REC_INITIATED)) {
+        RESET_INIT_FLAG(ptp->flags, MTX_QUEUE_REC_INITIATED);
         pthread_mutex_destroy(&(ptp->mtx_queue_recursive));
-        ptp->flags &= ~(0x00000001 << MTX_QUEUE_REC_INITIATED);
     }
-    if (ptp->flags & (0x00000001 << MTX_ERROR_INITIATED)) {
+    if (TEST_INIT_FLAG(ptp->flags, MTX_ERROR_INITIATED)) {
+        RESET_INIT_FLAG(ptp->flags, MTX_ERROR_INITIATED);
         pthread_mutex_destroy(&(ptp->mtx_error));
-        ptp->flags &= ~(0x00000001 << MTX_ERROR_INITIATED);
     }
-    if (ptp->flags & (0x00000001 << CND_HOTTASK_INITIATED)) {
+    if (TEST_INIT_FLAG(ptp->flags, CND_HOTTASK_INITIATED)) {
+        RESET_INIT_FLAG(ptp->flags, CND_HOTTASK_INITIATED);
         pthread_cond_destroy(&(ptp->cnd_hottask_occurred));
-        ptp->flags &= ~(0x00000001 << CND_HOTTASK_INITIATED);
     }
-    if (ptp->flags & (0x00000001 << CND_FREETASK_INITIATED)) {
+    if (TEST_INIT_FLAG(ptp->flags, CND_FREETASK_INITIATED)) {
+        RESET_INIT_FLAG(ptp->flags, CND_FREETASK_INITIATED);
         pthread_cond_destroy(&(ptp->cnd_freetask_occurred));
-        ptp->flags &= ~(0x00000001 << CND_FREETASK_INITIATED);
     }
-    if (ptp->flags & (0x00000001 << CND_JOINTASKS_INITIATED)) {
+    if (TEST_INIT_FLAG(ptp->flags, CND_JOINTASKS_INITIATED)) {
+        RESET_INIT_FLAG(ptp->flags, CND_JOINTASKS_INITIATED);
         pthread_cond_destroy(&(ptp->cnd_jointasks_occurred));
-        ptp->flags &= ~(0x00000001 << CND_JOINTASKS_INITIATED);
     }
-    if (ptp->flags & (0x00000001 << BRR_JOINTASKS_INITIATED)) {
+    if (TEST_INIT_FLAG(ptp->flags, BRR_JOINTASKS_INITIATED)) {
+        RESET_INIT_FLAG(ptp->flags, BRR_JOINTASKS_INITIATED);
         pthread_barrier_destroy(&(ptp->brr_jointasks_occurred));
-        ptp->flags &= ~(0x00000001 << BRR_JOINTASKS_INITIATED);
     }
-    if (ptp->flags & (0x00000001 << TASK_POOL_ALLOCATED)) {
+    if (TEST_INIT_FLAG(ptp->flags, TASK_POOL_ALLOCATED)) {
+        RESET_INIT_FLAG(ptp->flags, TASK_POOL_ALLOCATED);
         ptp_task_queue_free(&(ptp->task_pool));
-        ptp->flags &= ~(0x00000001 << TASK_POOL_ALLOCATED);
     }
-    if (ptp->flags & (0x00000001 << TASK_QUEUE_ALLOCATED)) {
+    if (TEST_INIT_FLAG(ptp->flags, TASK_QUEUE_ALLOCATED)) {
+        RESET_INIT_FLAG(ptp->flags, TASK_QUEUE_ALLOCATED);
         ptp_task_queue_free(&(ptp->task_queue));
-        ptp->flags &= ~(0x00000001 << TASK_QUEUE_ALLOCATED);
     }
 
     ptp_task_queue_splice(&(ptp->task_pool_recursive), &(ptp->task_queue_recursive));
-    if (ptp->flags & (0x00000001 << TASK_POOL_REC_ARALLOCATED)) {
+    if (TEST_INIT_FLAG(ptp->flags, TASK_POOL_REC_ARALLOCATED)) {
+        RESET_INIT_FLAG(ptp->flags, TASK_POOL_REC_ARALLOCATED);
         ptp_task_queue_arfree(&(ptp->task_pool_recursive));
-        ptp->flags &= ~(0x00000001 << TASK_POOL_REC_ARALLOCATED);
     }
-    if (ptp->flags & (0x00000001 << TASK_QUEUE_REC_ARALLOCATED)) {
+    if (TEST_INIT_FLAG(ptp->flags, TASK_QUEUE_REC_ARALLOCATED)) {
+        RESET_INIT_FLAG(ptp->flags, TASK_QUEUE_REC_ARALLOCATED);
         ptp_task_queue_arfree(&(ptp->task_queue_recursive));
-        ptp->flags &= ~(0x00000001 << TASK_QUEUE_REC_ARALLOCATED);
     }
 
     ptp_error_queue_splice(&(ptp->error_pool), &(ptp->error_queue));
-    if (ptp->flags & (0x00000001 << ERROR_POOL_ARALLOCATED)) {
+    if (TEST_INIT_FLAG(ptp->flags, ERROR_POOL_ARALLOCATED)) {
+        RESET_INIT_FLAG(ptp->flags, ERROR_POOL_ARALLOCATED);
         ptp_error_queue_arfree(&(ptp->error_pool));
-        ptp->flags &= ~(0x00000001 << ERROR_POOL_ARALLOCATED);
     }
-    if (ptp->flags & (0x00000001 << ERROR_QUEUE_ARALLOCATED)) {
+    if (TEST_INIT_FLAG(ptp->flags, ERROR_QUEUE_ARALLOCATED)) {
+        RESET_INIT_FLAG(ptp->flags, ERROR_QUEUE_ARALLOCATED);
         ptp_error_queue_arfree(&(ptp->error_queue));
-        ptp->flags &= ~(0x00000001 << ERROR_QUEUE_ARALLOCATED);
     }
 
     if (0 != ptp->flags)
